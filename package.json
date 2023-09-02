@@ -18,6 +18,6 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "winston": "^3.10.0"
+    "cli-color": "^2.0.3"
   }
 }
