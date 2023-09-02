@@ -4,7 +4,8 @@
   "description": "Long polls bugsnag errors and posts them to discord via web hook",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npx tsc",
+    "build:dev": "npx tsc --watch"
   },
   "keywords": [],
   "author": "",
