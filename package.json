@@ -6,7 +6,8 @@
   "scripts": {
     "build": "npx tsc",
     "build:dev": "npx tsc --watch",
-    "lint": "npx ts-standard"
+    "lint": "npx ts-standard",
+    "start": "node ./bot.js"
   },
   "keywords": [],
   "author": "",
