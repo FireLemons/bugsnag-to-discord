@@ -1,0 +1,15 @@
+{
+  "name": "bugsnag-to-discord",
+  "version": "1.0.0",
+  "description": "Long polls bugsnag errors and posts them to discord via web hook",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
