@@ -1,4 +1,7 @@
+import * as https from "node:https"
+
 const clc = require('cli-color')
+const CronJob = require('cron').CronJob
 const fs = require('fs')
 
 const logger = {
@@ -14,15 +17,17 @@ const logger = {
 
 }
 
-let https
+const config = JSON.parse(fs.readFileSync('./config.json'))
 
-try {
-    https = require('node:https')
-} catch (err) {
-    console.error(err)
-    throw new Error('https support is disabled')
+function pollBugsnag () {
+    return https.request
 }
 
-const result = JSON.parse(fs.readFileSync('./config.json'))
+const pollBugsnagAndForwardToDiscord = new CronJob(
+    config.pollIntervalAsCronString,
+    () => {
+        logger.info(config)
+    }
+)
 
-logger.info(result)
+pollBugsnagAndForwardToDiscord.start()
