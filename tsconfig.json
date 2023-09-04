@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "module": "system",
+    "module": "nodenext",
     "noImplicitAny": true,
     "removeComments": true,
-    "outFile": "./bot.js",
+    "outDir": "./",
     "sourceMap": true
   },
   "include": ["src/**/*"],
