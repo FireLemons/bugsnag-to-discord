@@ -1,3 +1,4 @@
+import { IncomingMessage } from "node:http"
 import * as https from "node:https"
 
 const clc = require('cli-color')
@@ -19,15 +20,36 @@ const logger = {
 
 const config = JSON.parse(fs.readFileSync('./config.json'))
 
-function pollBugsnag () {
-    return https.request
+function pollBugsnag (): Promise<IncomingMessage> {
+    return new Promise((resolve, reject) => {
+        https.request({
+            headers: {
+                Authorization: `token ${config.bugsnagAuthToken}`
+            },
+            hostname: 'api.bugsnag.com',
+            path: '/user/organizations?admin=false'
+        },
+        (response) => {
+            const { statusCode } = response
+
+            if (200 <= statusCode && statusCode < 300) {
+                resolve(response)
+            } else {
+                reject(response)
+            }
+        }).end()
+    })
 }
 
-const pollBugsnagAndForwardToDiscord = new CronJob(
+/*const pollBugsnagAndForwardToDiscord = new CronJob(
     config.pollIntervalAsCronString,
     () => {
         logger.info(config)
     }
-)
+)*/
 
-pollBugsnagAndForwardToDiscord.start()
+// pollBugsnagAndForwardToDiscord.start()
+
+pollBugsnag().then((response) => {
+    console.log(response)
+})
