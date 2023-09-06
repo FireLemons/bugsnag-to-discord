@@ -41,20 +41,44 @@ const logger = {
 const config = JSON.parse(fs.readFileSync('./config.json'));
 function pollBugsnag() {
     return new Promise((resolve, reject) => {
+        let buffer = [];
         https.request({
             headers: {
                 Authorization: `token ${config.bugsnagAuthToken}`
             },
             hostname: 'api.bugsnag.com',
-            method: 'GET',
-            path: '/user/organizations?admin=false'
+            path: `/projects/${config.bugsnagProjectID}/events`
         }, (response) => {
-            console.log('statusCode:', response.statusCode);
-            resolve(response);
+            const { statusCode } = response;
+            if (statusCode < 200 && 300 <= statusCode) {
+                reject(response);
+            }
+            response.on('data', (chunk) => {
+                buffer.push(chunk);
+            }).on('end', () => {
+                let bugsnagData;
+                try {
+                    bugsnagData = JSON.parse(Buffer.concat(buffer).toString());
+                }
+                catch (error) {
+                    reject(error);
+                    return;
+                }
+                resolve(bugsnagData);
+            });
+        }).on('error', (error) => {
+            reject(error);
         }).end();
     });
 }
-pollBugsnag().then((response) => {
-    console.log(response);
+const pollBugsnagAndForwardToDiscord = new CronJob(`0/10 * * * *`, () => {
+    pollBugsnag().then((response) => {
+        logger.info('Response:');
+        console.log(response);
+    }).catch((error) => {
+        logger.error('Failure:');
+        console.error(error);
+    });
 });
+pollBugsnagAndForwardToDiscord.start();
 //# sourceMappingURL=bot.js.map

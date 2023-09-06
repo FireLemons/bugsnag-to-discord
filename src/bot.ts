@@ -20,36 +20,55 @@ const logger = {
 
 const config = JSON.parse(fs.readFileSync('./config.json'))
 
-function pollBugsnag (): Promise<IncomingMessage> {
+function pollBugsnag (): Promise<Error | IncomingMessage | Object> {
     return new Promise((resolve, reject) => {
+        let buffer: Uint8Array[] = []
+
         https.request({
             headers: {
                 Authorization: `token ${config.bugsnagAuthToken}`
             },
             hostname: 'api.bugsnag.com',
-            path: '/user/organizations?admin=false'
+            path: `/projects/${config.bugsnagProjectID}/events`
         },
         (response) => {
             const { statusCode } = response
 
-            if (200 <= statusCode && statusCode < 300) {
-                resolve(response)
-            } else {
+            if (statusCode < 200 && 300 <= statusCode) {
                 reject(response)
             }
+
+            response.on('data', (chunk) => {
+                buffer.push(chunk)
+            }).on('end', () => {
+                let bugsnagData: Object
+
+                try {
+                    bugsnagData = JSON.parse(Buffer.concat(buffer).toString())
+                } catch (error) {
+                    reject(error)
+                    return
+                }
+
+                resolve(bugsnagData)
+            })
+        }).on('error', (error) => {
+            reject(error)
         }).end()
     })
 }
 
-/*const pollBugsnagAndForwardToDiscord = new CronJob(
-    config.pollIntervalAsCronString,
+const pollBugsnagAndForwardToDiscord = new CronJob(
+    `0/10 * * * *`, // Every 10 minutes at 00, 10, 20...
     () => {
-        logger.info(config)
+        pollBugsnag().then((response) => {
+            logger.info('Response:')
+            console.log(response)
+        }).catch((error) => {
+            logger.error('Failure:')
+            console.error(error)
+        })
     }
-)*/
+)
 
-// pollBugsnagAndForwardToDiscord.start()
-
-pollBugsnag().then((response) => {
-    console.log(response)
-})
+pollBugsnagAndForwardToDiscord.start()
