@@ -22,8 +22,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const https = __importStar(require("node:https"));
+const axios_1 = __importDefault(require("axios"));
 const clc = require('cli-color');
 const CronJob = require('cron').CronJob;
 const fs = require('fs');
@@ -40,78 +44,25 @@ const logger = {
     }
 };
 const config = JSON.parse(fs.readFileSync('./config.json'));
+const bugsnagAuthHeader = {
+    Authorization: `token ${config.bugsnagAuthToken}`
+};
 function getBugsnagEventDetails(eventID) {
-    return new Promise((resolve, reject) => {
-        if (typeof eventID !== 'string') {
-            logger.error('eventID must be a string');
-            reject(new TypeError('param eventID is not a string'));
-        }
-        if (!eventID.length) {
-            logger.error('Empty string eventID');
-            reject(new RangeError('param eventID is empty string'));
-        }
-        let buffer = [];
-        https.request({
-            headers: {
-                Authorization: `token ${config.bugsnagAuthToken}`
-            },
-            hostname: 'api.bugsnag.com',
-            path: `/projects/${config.bugsnagProjectID}/events/${eventID}`
-        }, (response) => {
-            const { statusCode } = response;
-            if (statusCode < 200 && 300 <= statusCode) {
-                logger.error(`Bugsnag event details data request returned with unsuccessful status: ${statusCode}`);
-                reject(response);
-            }
-            response.on('data', (chunk) => {
-                buffer.push(chunk);
-            }).on('end', () => {
-                let bugsnagData;
-                try {
-                    bugsnagData = JSON.parse(Buffer.concat(buffer).toString());
-                }
-                catch (error) {
-                    reject(error);
-                    return;
-                }
-                resolve(bugsnagData);
-            });
-        }).on('error', (error) => {
-            reject(error);
-        }).end();
+    if (typeof eventID !== 'string') {
+        logger.error('eventID must be a string');
+        throw new TypeError('param eventID is not a string');
+    }
+    if (!eventID.length) {
+        logger.error('Empty string eventID');
+        throw new RangeError('param eventID is empty string');
+    }
+    return axios_1.default.get(`https://api.bugsnag.com/projects/${config.bugsnagProjectID}/events/${eventID}`, {
+        headers: bugsnagAuthHeader
     });
 }
 function listBugsnagEvents() {
-    return new Promise((resolve, reject) => {
-        let buffer = [];
-        https.request({
-            headers: {
-                Authorization: `token ${config.bugsnagAuthToken}`
-            },
-            hostname: 'api.bugsnag.com',
-            path: `/projects/${config.bugsnagProjectID}/events`
-        }, (response) => {
-            const { statusCode } = response;
-            if (statusCode < 200 && 300 <= statusCode) {
-                logger.error(`Bugsnag event data request returned with unsuccessful status: ${statusCode}`);
-                reject(response);
-            }
-            response.on('data', (chunk) => {
-                buffer.push(chunk);
-            }).on('end', () => {
-                let bugsnagData;
-                try {
-                    bugsnagData = JSON.parse(Buffer.concat(buffer).toString());
-                }
-                catch (error) {
-                    reject(error);
-                    return;
-                }
-                resolve(bugsnagData);
-            });
-        }).on('error', (error) => {
-            reject(error);
-        }).end();
+    return axios_1.default.get(`https://api.bugsnag.com/projects/${config.bugsnagProjectID}/events`, {
+        headers: bugsnagAuthHeader
     });
 }
 function formatDiscordMessage(bugsnagEvent) {
@@ -151,7 +102,61 @@ ${stacktrace}
     }
     return message;
 }
+function sendDiscordMessage() {
+    return new Promise((resolve, reject) => {
+        let buffer = [];
+        https.request({
+            hostname: 'discord.com',
+            method: 'POST',
+            path: `/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`
+        }, (response) => {
+            const { statusCode } = response;
+            if (statusCode < 200 && 300 <= statusCode) {
+                logger.error(`Discord webhook post returned with unsuccessful status: ${statusCode}`);
+                reject(response);
+            }
+            response.on('data', (chunk) => {
+                buffer.push(chunk);
+            }).on('end', () => {
+                let discordResponse;
+                try {
+                    discordResponse = JSON.parse(Buffer.concat(buffer).toString());
+                }
+                catch (error) {
+                    reject(error);
+                    return;
+                }
+                resolve(discordResponse);
+            });
+        }).on('error', (error) => {
+            reject(error);
+        }).end();
+    });
+}
 const detailedTestingEvent = JSON.parse(fs.readFileSync('./sample_detailed_event.json'));
 logger.info('Discord Message:');
 console.log(formatDiscordMessage(detailedTestingEvent));
+const currentTime = new Date();
+listBugsnagEvents().then((response) => {
+    const bugsnagEventListResponseStatus = response.status;
+    const bugsnagEventList = response.data;
+    if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
+        throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`);
+    }
+    logger.info('Response:');
+    if (!(bugsnagEventList instanceof Array)) {
+        logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`);
+        return;
+    }
+    const errorEventsInLast30Minutes = bugsnagEventList.slice(0, 1);
+    const eventCount = errorEventsInLast30Minutes.length;
+    logger.info(`Found ${eventCount} events in the last 30 minutes`);
+    if (!eventCount) {
+        return;
+    }
+    console.log(errorEventsInLast30Minutes);
+}).catch((error) => {
+    logger.error('Failed to list Bugsnag events');
+    console.error(error);
+});
 //# sourceMappingURL=bot.js.map
