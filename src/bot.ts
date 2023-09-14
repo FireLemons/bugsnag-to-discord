@@ -96,7 +96,8 @@ function listBugsnagEvents(): Promise<axios.AxiosResponse> {
 }
 
 function formatDiscordMessage (bugsnagEvent: EventBugsnagDetailed): string {
-    const anonymizedEmail = /(@.*)/.exec(bugsnagEvent.user.email)[0]
+    const email = bugsnagEvent.user.email
+    const anonymizedEmail = email ? /(@.*)/.exec(email)[0] : ''
     const matchedTimeSubstrings = /(.*):[\d]{2} GMT-[\d]{4} (\(.*\))/.exec(new Date(bugsnagEvent.received_at).toString())
     const formattedTime = `${matchedTimeSubstrings[1]} ${matchedTimeSubstrings[2]}`
 
