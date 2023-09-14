@@ -5,7 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const axios_1 = __importDefault(require("axios"));
 const clc = require('cli-color');
-const CronJob = require('cron').CronJob;
 const fs = require('fs');
 const DISCORD_MESSAGE_LENGTH_LIMIT = 2000;
 const logger = {
@@ -23,6 +22,9 @@ const config = JSON.parse(fs.readFileSync('./config.json'));
 const bugsnagAuthHeader = {
     Authorization: `token ${config.bugsnagAuthToken}`
 };
+let { pollIntervalInMinutes, printBugsnagEventsToConsole } = config;
+pollIntervalInMinutes = pollIntervalInMinutes ? pollIntervalInMinutes : 30;
+let failedAttemptCount = 0;
 function getBugsnagEventDetails(eventID) {
     if (typeof eventID !== 'string') {
         logger.error('eventID must be a string');
@@ -68,8 +70,7 @@ ${stacktrace}
 **Controller:** ${bugsnagEvent.context}
 **Affected User:** xxx${anonymizedEmail}, ${bugsnagEvent.user.id}
 **App URL:** ${bugsnagEvent.request.url}
-**Time:** ${formattedTime}
-`;
+**Time:** ${formattedTime}`;
     if (message.length > DISCORD_MESSAGE_LENGTH_LIMIT) {
         while (message.length > DISCORD_MESSAGE_LENGTH_LIMIT - 4) {
             message = message.substring(message.lastIndexOf("\n") + 1, -1);
@@ -83,15 +84,61 @@ function sendDiscordMessage(message) {
         content: message
     });
 }
-const detailedTestingEvent = JSON.parse(fs.readFileSync('./sample_detailed_event.json'));
-logger.info('Discord Message:');
-sendDiscordMessage(formatDiscordMessage(detailedTestingEvent))
-    .then((discordResponse) => {
-    logger.info('Discord Response:');
-    console.log(discordResponse);
-})
-    .catch((error) => {
-    logger.error('Discord Error:');
-    console.error(error);
-});
+setInterval(() => {
+    const currentTime = new Date();
+    listBugsnagEvents().then((response) => {
+        const bugsnagEventListResponseStatus = response.status;
+        const bugsnagEventList = response.data;
+        if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
+            throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`);
+        }
+        logger.info('Response:');
+        if (!(bugsnagEventList instanceof Array)) {
+            logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`);
+            throw new TypeError('Bugsnag event list response not array');
+        }
+        const errorEventsInPollWindow = bugsnagEventList.filter((errorEvent) => {
+            return currentTime.valueOf() - new Date(errorEvent.received_at).valueOf() <= 1000 * 60 * (pollIntervalInMinutes + (pollIntervalInMinutes * failedAttemptCount));
+        });
+        const eventCount = errorEventsInPollWindow.length;
+        logger.info(`Found ${eventCount} events in the last 30 minutes`);
+        if (!eventCount) {
+            return;
+        }
+        for (const bugsnagEvent of errorEventsInPollWindow) {
+            getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse) => {
+                let responseStatus = bugsnagDetailedEventResponse.status;
+                if (responseStatus < 200 && 300 <= responseStatus) {
+                    throw new Error(`Response status not success: Instead: ${responseStatus}`);
+                }
+                const formattedMessage = formatDiscordMessage(bugsnagDetailedEventResponse.data);
+                sendDiscordMessage(formattedMessage)
+                    .then((discordResponse) => {
+                    const discordResponseStatus = discordResponse.status;
+                    if (discordResponseStatus < 200 && 300 <= discordResponseStatus) {
+                        throw new Error(`Response status not success: Instead: ${discordResponseStatus}`);
+                    }
+                    else {
+                        logger.info('Discord message sent');
+                        failedAttemptCount = 0;
+                        if (printBugsnagEventsToConsole) {
+                            logger.info('Message:');
+                            console.log(formattedMessage);
+                        }
+                    }
+                })
+                    .catch((error) => {
+                    logger.error('Discord Error:');
+                    console.error(error);
+                    failedAttemptCount++;
+                });
+            });
+        }
+        console.log(errorEventsInPollWindow);
+    }).catch((error) => {
+        logger.error('Failed to list Bugsnag events');
+        console.error(error);
+        failedAttemptCount++;
+    });
+}, pollIntervalInMinutes * 1000 * 60);
 //# sourceMappingURL=bot.js.map
