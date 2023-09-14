@@ -9,6 +9,7 @@ Long polls bugsnag errors and posts them to discord via web hook
 `npm run build:dev` compile javascript into js and watch for changes
 
 ## Config
+in a file in the project root called `config.json`
 ```
 {
     "bugsnagAuthToken": "",
