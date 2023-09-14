@@ -16,6 +16,7 @@ in a file in the project root called `config.json`
     "bugsnagProjectID": "",
     "discordWebhookID": "",
     "discordWebhookToken": "",
-    "pollIntervalInMinutes": 30
+    "pollIntervalInMinutes": 30, // Optional default 30
+    "printBugsnagEventsToConsole": true // Optional default false
 }
 ```
