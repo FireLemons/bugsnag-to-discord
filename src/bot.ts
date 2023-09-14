@@ -142,97 +142,75 @@ ${stacktrace}
     return message
 }
 
-function sendDiscordMessage (): Promise<Object> {
-    return new Promise((resolve, reject) => {
-        let buffer: Uint8Array[] = []
-
-        https.request({
-            hostname: 'discord.com',
-            method: 'POST',
-            path: `/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`
-        },
-        (response) => {
-            const { statusCode } = response
-
-            if (statusCode < 200 && 300 <= statusCode) {
-                logger.error(`Discord webhook post returned with unsuccessful status: ${statusCode}`)
-                reject(response)
-            }
-
-            response.on('data', (chunk) => {
-                buffer.push(chunk)
-            }).on('end', () => {
-                let discordResponse: object
-
-                try {
-                    discordResponse = JSON.parse(Buffer.concat(buffer).toString())
-                } catch (error) {
-                    reject(error)
-                    return
-                }
-
-                resolve(discordResponse)
-            })
-        }).on('error', (error) => {
-            reject(error)
-        }).end()
+function sendDiscordMessage (message: string): Promise<axios.AxiosResponse> {
+    return axios.post(`https://discord.com/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`,
+    {
+        content: message
     })
 }
 
 const detailedTestingEvent: EventBugsnagDetailed = JSON.parse(fs.readFileSync('./sample_detailed_event.json'))
 
 logger.info('Discord Message:')
-console.log(formatDiscordMessage(detailedTestingEvent))
+sendDiscordMessage(formatDiscordMessage(detailedTestingEvent))
+.then((discordResponse) => {
+    logger.info('Discord Response:')
+    console.log(discordResponse)
+})
+.catch((error) => {
+    logger.error('Discord Error:')
+    console.error(error)
+})
 
 //const pollBugsnagAndForwardToDiscord = new CronJob(
 //    `0/30 * * * *`, // Every 30 minutes at XX:00 and XX:30
 //    () => {
-        const currentTime = new Date()
+        // const currentTime = new Date()
 
-        listBugsnagEvents().then((response) => {       
-            const bugsnagEventListResponseStatus = response.status
-            const bugsnagEventList = response.data
+        // listBugsnagEvents().then((response) => {
+        //     const bugsnagEventListResponseStatus = response.status
+        //     const bugsnagEventList = response.data
 
-            if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
-                throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`)
-            }
+        //     if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
+        //         throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`)
+        //     }
 
-            logger.info('Response:')
+        //     logger.info('Response:')
 
-            if (!(bugsnagEventList instanceof Array)) {
-                logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`)
-                return
-            }
+        //     if (!(bugsnagEventList instanceof Array)) {
+        //         logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`)
+        //         return
+        //     }
 
-            const errorEventsInLast30Minutes: EventBugsnag[] = bugsnagEventList.slice(0, 1)/*filter((errorEvent: EventBugsnag) => {
-                return currentTime.valueOf() - new Date(errorEvent.received_at).valueOf() <= 1000 * 60 * 30
-            })*/
+        //     const errorEventsInLast30Minutes: EventBugsnag[] = bugsnagEventList.slice(0, 1)/*filter((errorEvent: EventBugsnag) => {
+        //         return currentTime.valueOf() - new Date(errorEvent.received_at).valueOf() <= 1000 * 60 * 30
+        //     })*/
 
-            const eventCount: number = errorEventsInLast30Minutes.length
+        //     const eventCount: number = errorEventsInLast30Minutes.length
 
-            logger.info(`Found ${eventCount} events in the last 30 minutes`)
+        //     logger.info(`Found ${eventCount} events in the last 30 minutes`)
 
-            if (!eventCount) {
-                return
-            }
+        //     if (!eventCount) {
+        //         return
+        //     }
 
-            /*for(const bugsnagEvent of errorEventsInLast30Minutes) {
-                getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse: axios.AxiosResponse) => {
-                    let responseStatus = bugsnagDetailedEventResponse.status
+        //     for(const bugsnagEvent of errorEventsInLast30Minutes) {
+        //         getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse: axios.AxiosResponse) => {
+        //             let responseStatus = bugsnagDetailedEventResponse.status
 
-                    if (responseStatus < 200 && 300 <= responseStatus) {
-                        throw new Error(`Response status not success: Instead: ${responseStatus}`)
-                    }
+        //             if (responseStatus < 200 && 300 <= responseStatus) {
+        //                 throw new Error(`Response status not success: Instead: ${responseStatus}`)
+        //             }
 
-                    console.log(JSON.stringify(bugsnagDetailedEventResponse.data))
-                })
-            }*/
+        //             console.log(formatDiscordMessage(bugsnagDetailedEventResponse.data))
+        //         })
+        //     }
 
-            console.log(errorEventsInLast30Minutes)
-        }).catch((error) => {
-            logger.error('Failed to list Bugsnag events')
-            console.error(error)
-         })
+        //     console.log(errorEventsInLast30Minutes)
+        // }).catch((error) => {
+        //     logger.error('Failed to list Bugsnag events')
+        //     console.error(error)
+        //  })
 //    }
 //)
 

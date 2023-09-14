@@ -1,32 +1,8 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const https = __importStar(require("node:https"));
 const axios_1 = __importDefault(require("axios"));
 const clc = require('cli-color');
 const CronJob = require('cron').CronJob;
@@ -102,61 +78,20 @@ ${stacktrace}
     }
     return message;
 }
-function sendDiscordMessage() {
-    return new Promise((resolve, reject) => {
-        let buffer = [];
-        https.request({
-            hostname: 'discord.com',
-            method: 'POST',
-            path: `/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`
-        }, (response) => {
-            const { statusCode } = response;
-            if (statusCode < 200 && 300 <= statusCode) {
-                logger.error(`Discord webhook post returned with unsuccessful status: ${statusCode}`);
-                reject(response);
-            }
-            response.on('data', (chunk) => {
-                buffer.push(chunk);
-            }).on('end', () => {
-                let discordResponse;
-                try {
-                    discordResponse = JSON.parse(Buffer.concat(buffer).toString());
-                }
-                catch (error) {
-                    reject(error);
-                    return;
-                }
-                resolve(discordResponse);
-            });
-        }).on('error', (error) => {
-            reject(error);
-        }).end();
+function sendDiscordMessage(message) {
+    return axios_1.default.post(`https://discord.com/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`, {
+        content: message
     });
 }
 const detailedTestingEvent = JSON.parse(fs.readFileSync('./sample_detailed_event.json'));
 logger.info('Discord Message:');
-console.log(formatDiscordMessage(detailedTestingEvent));
-const currentTime = new Date();
-listBugsnagEvents().then((response) => {
-    const bugsnagEventListResponseStatus = response.status;
-    const bugsnagEventList = response.data;
-    if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
-        throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`);
-    }
-    logger.info('Response:');
-    if (!(bugsnagEventList instanceof Array)) {
-        logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`);
-        return;
-    }
-    const errorEventsInLast30Minutes = bugsnagEventList.slice(0, 1);
-    const eventCount = errorEventsInLast30Minutes.length;
-    logger.info(`Found ${eventCount} events in the last 30 minutes`);
-    if (!eventCount) {
-        return;
-    }
-    console.log(errorEventsInLast30Minutes);
-}).catch((error) => {
-    logger.error('Failed to list Bugsnag events');
+sendDiscordMessage(formatDiscordMessage(detailedTestingEvent))
+    .then((discordResponse) => {
+    logger.info('Discord Response:');
+    console.log(discordResponse);
+})
+    .catch((error) => {
+    logger.error('Discord Error:');
     console.error(error);
 });
 //# sourceMappingURL=bot.js.map
