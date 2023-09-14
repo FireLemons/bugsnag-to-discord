@@ -92,7 +92,6 @@ setInterval(() => {
         if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
             throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`);
         }
-        logger.info('Response:');
         if (!(bugsnagEventList instanceof Array)) {
             logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`);
             throw new TypeError('Bugsnag event list response not array');
@@ -100,11 +99,7 @@ setInterval(() => {
         const errorEventsInPollWindow = bugsnagEventList.filter((errorEvent) => {
             return currentTime.valueOf() - new Date(errorEvent.received_at).valueOf() <= 1000 * 60 * (pollIntervalInMinutes + (pollIntervalInMinutes * failedAttemptCount));
         });
-        const eventCount = errorEventsInPollWindow.length;
-        logger.info(`Found ${eventCount} events in the last 30 minutes`);
-        if (!eventCount) {
-            return;
-        }
+        logger.info(`Found ${errorEventsInPollWindow.length} events in the last 30 minutes`);
         for (const bugsnagEvent of errorEventsInPollWindow) {
             getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse) => {
                 let responseStatus = bugsnagDetailedEventResponse.status;
@@ -132,9 +127,12 @@ setInterval(() => {
                     console.error(error);
                     failedAttemptCount++;
                 });
+            }).catch((error) => {
+                logger.error('Failed to fetch detailed bugsnag event');
+                console.error(error);
+                failedAttemptCount++;
             });
         }
-        console.log(errorEventsInPollWindow);
     }).catch((error) => {
         logger.error('Failed to list Bugsnag events');
         console.error(error);
