@@ -12,6 +12,9 @@ Long polls bugsnag errors and posts them to discord via web hook
 ```
 {
     "bugsnagAuthToken": "",
-    "bugsnagProjectID": ""
+    "bugsnagProjectID": "",
+    "discordWebhookID": "",
+    "discordWebhookToken": "",
+    "pollIntervalInMinutes": 30
 }
 ```
