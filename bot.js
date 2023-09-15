@@ -45,7 +45,7 @@ function listBugsnagEvents() {
 }
 function formatDiscordMessage(bugsnagEvent) {
     const email = bugsnagEvent.user.email;
-    const anonymizedEmail = email ? /(@.*)/.exec(email)[0] : '';
+    const anonymizedEmail = email ? 'xxx' + /(@.*)/.exec(email)[0] : '';
     const matchedTimeSubstrings = /(.*):[\d]{2} GMT-[\d]{4} (\(.*\))/.exec(new Date(bugsnagEvent.received_at).toString());
     const formattedTime = `${matchedTimeSubstrings[1]} ${matchedTimeSubstrings[2]}`;
     const onlyException = bugsnagEvent.exceptions[0];
@@ -69,7 +69,7 @@ function formatDiscordMessage(bugsnagEvent) {
 **Stack:**
 ${stacktrace}
 **Controller:** ${bugsnagEvent.context}
-**Affected User:** xxx${anonymizedEmail}, ${bugsnagEvent.user.id}
+**Affected User:** ${anonymizedEmail}, ${anonymizedEmail ? bugsnagEvent.user.id : ''}
 **App URL:** ${bugsnagEvent.request.url}
 **Time:** ${formattedTime}`;
     if (message.length > DISCORD_MESSAGE_LENGTH_LIMIT) {
