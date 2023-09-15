@@ -96,10 +96,19 @@ function listBugsnagEvents(): Promise<axios.AxiosResponse> {
 }
 
 function formatDiscordMessage (bugsnagEvent: EventBugsnagDetailed): string {
-    const email = bugsnagEvent.user.email
-    const anonymizedEmail = email ? 'xxx' + /(@.*)/.exec(email)[0] : ''
+    
     const matchedTimeSubstrings = /(.*):[\d]{2} GMT-[\d]{4} (\(.*\))/.exec(new Date(bugsnagEvent.received_at).toString())
     const formattedTime = `${matchedTimeSubstrings[1]} ${matchedTimeSubstrings[2]}`
+
+    const email = bugsnagEvent.user.email
+    let userInfo = ''
+
+    if (email) {
+        const anonymizedEmail = /(@.*)/.exec(email)[0]
+        userInfo = `**Affected User:** xxx${anonymizedEmail}, ${bugsnagEvent.user.id}`
+    } else {
+        userInfo = 'Affected user not logged in'
+    }
 
     const onlyException = bugsnagEvent.exceptions[0]
     const relevantProjectFiles = onlyException.stacktrace.filter((subroutine) => {
@@ -128,7 +137,7 @@ function formatDiscordMessage (bugsnagEvent: EventBugsnagDetailed): string {
 **Stack:**
 ${stacktrace}
 **Controller:** ${bugsnagEvent.context}
-**Affected User:** ${anonymizedEmail}, ${anonymizedEmail ? bugsnagEvent.user.id : ''}
+${userInfo}
 **App URL:** ${bugsnagEvent.request.url}
 **Time:** ${formattedTime}`
 
