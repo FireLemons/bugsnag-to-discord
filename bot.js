@@ -61,9 +61,10 @@ function formatDiscordMessage(bugsnagEvent) {
     });
     let stacktrace = '';
     for (const projectFile of relevantProjectFiles) {
+        const fileName = projectFile.file;
         stacktrace = stacktrace +
-            `  **File:** ${projectFile.file}:${projectFile.line_number}
-\`\`\`ruby
+            `  **File:** ${fileName}:${projectFile.line_number}
+\`\`\`${fileName.endsWith('.rb') ? 'ruby' : 'erb'}
 `;
         for (const line of Object.values(projectFile.code)) {
             stacktrace = stacktrace + line + '\n';
@@ -110,7 +111,7 @@ setInterval(() => {
         logger.info(`Found ${errorEventsInPollWindow.length} events in the last ${pollIntervalInMinutes} minutes`);
         for (const bugsnagEvent of errorEventsInPollWindow) {
             getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse) => {
-                let responseStatus = bugsnagDetailedEventResponse.status;
+                const responseStatus = bugsnagDetailedEventResponse.status;
                 if (responseStatus < 200 && 300 <= responseStatus) {
                     throw new Error(`Response status not success: Instead: ${responseStatus}`);
                 }

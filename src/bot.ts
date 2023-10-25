@@ -18,7 +18,7 @@ type EventBugsnag = {
                     in_project: boolean
                     line_number: number
                     code: {
-                        [name: string] : string
+                        [name: string]: string
                     }
                 }
             ]
@@ -118,10 +118,12 @@ function formatDiscordMessage (bugsnagEvent: EventBugsnagDetailed): string {
     let stacktrace = ''
 
     for (const projectFile of relevantProjectFiles) {
+        const fileName = projectFile.file
+
         stacktrace = stacktrace +
 // Keep these template literals against the left. They preserve whitespace.
-`  **File:** ${projectFile.file}:${projectFile.line_number}
-\`\`\`ruby
+`  **File:** ${fileName}:${projectFile.line_number}
+\`\`\`${fileName.endsWith('.rb') ? 'ruby' : 'erb'}
 `
         for (const line of Object.values(projectFile.code)) {
             stacktrace = stacktrace + line + '\n'
@@ -153,74 +155,74 @@ ${userInfo}
 }
 
 function sendDiscordMessage (message: string): Promise<axios.AxiosResponse> {
-    return axios.post(`https://discord.com/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`,
+  return axios.post(`https://discord.com/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`,
     {
-        content: message
+      content: message
     })
 }
 
 setInterval(() => {
-    const currentTime = new Date()
+  const currentTime = new Date()
 
-    listBugsnagEvents().then((response) => {
-        const bugsnagEventListResponseStatus = response.status
-        const bugsnagEventList = response.data
+  listBugsnagEvents().then((response) => {
+    const bugsnagEventListResponseStatus = response.status
+    const bugsnagEventList = response.data
 
-        if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
-            throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`)
+    if (bugsnagEventListResponseStatus < 200 && 300 <= bugsnagEventListResponseStatus) {
+      throw new Error(`Response status not success: Instead: ${bugsnagEventListResponseStatus}`)
+    }
+
+    if (!(bugsnagEventList instanceof Array)) {
+      logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`)
+      throw new TypeError('Bugsnag event list response not array')
+    }
+
+    const errorEventsInPollWindow: EventBugsnag[] = bugsnagEventList.filter((errorEvent: EventBugsnag) => {
+      return currentTime.valueOf() - new Date(errorEvent.received_at).valueOf() <= 1000 * 60 * (pollIntervalInMinutes + (pollIntervalInMinutes * failedAttemptCount))
+    })
+
+    logger.info(`Found ${errorEventsInPollWindow.length} events in the last ${pollIntervalInMinutes} minutes`)
+
+    for(const bugsnagEvent of errorEventsInPollWindow) {
+      getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse: axios.AxiosResponse) => {
+        const responseStatus = bugsnagDetailedEventResponse.status
+
+        if (responseStatus < 200 && 300 <= responseStatus) {
+          throw new Error(`Response status not success: Instead: ${responseStatus}`)
         }
 
-        if (!(bugsnagEventList instanceof Array)) {
-            logger.error(`Unexpected Bugsnag data response. Expected array got ${typeof bugsnagEventList}`)
-            throw new TypeError('Bugsnag event list response not array')
-        }
+        const formattedMessage = formatDiscordMessage(bugsnagDetailedEventResponse.data)
 
-        const errorEventsInPollWindow: EventBugsnag[] = bugsnagEventList.filter((errorEvent: EventBugsnag) => {
-            return currentTime.valueOf() - new Date(errorEvent.received_at).valueOf() <= 1000 * 60 * (pollIntervalInMinutes + (pollIntervalInMinutes * failedAttemptCount))
-        })
+        sendDiscordMessage(formattedMessage)
+          .then((discordResponse) => {
+            const discordResponseStatus = discordResponse.status
 
-        logger.info(`Found ${errorEventsInPollWindow.length} events in the last ${pollIntervalInMinutes} minutes`)
+            if (discordResponseStatus < 200 && 300 <= discordResponseStatus) {
+              throw new Error(`Response status not success: Instead: ${discordResponseStatus}`)
+            } else {
+              logger.info('Discord message sent')
+              failedAttemptCount = 0
 
-        for(const bugsnagEvent of errorEventsInPollWindow) {
-            getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse: axios.AxiosResponse) => {
-                let responseStatus = bugsnagDetailedEventResponse.status
-
-                if (responseStatus < 200 && 300 <= responseStatus) {
-                    throw new Error(`Response status not success: Instead: ${responseStatus}`)
-                }
-
-                const formattedMessage = formatDiscordMessage(bugsnagDetailedEventResponse.data)
-
-                sendDiscordMessage(formattedMessage)
-                .then((discordResponse) => {
-                    const discordResponseStatus = discordResponse.status
-
-                    if (discordResponseStatus < 200 && 300 <= discordResponseStatus) {
-                        throw new Error(`Response status not success: Instead: ${discordResponseStatus}`)
-                    } else {
-                        logger.info('Discord message sent')
-                        failedAttemptCount = 0
-
-                        if (printBugsnagEventsToConsole) {
-                            logger.info('Message:')
-                            console.log(formattedMessage)
-                        }
-                    }
-                })
-                .catch((error) => {
-                    logger.error('Discord Error:')
-                    console.error(error)
-                    failedAttemptCount++
-                })
-            }).catch((error) => {
-                logger.error('Failed to fetch detailed bugsnag event')
-                console.error(error)
-                failedAttemptCount++
-            })
-        }
-    }).catch((error) => {
-        logger.error('Failed to list Bugsnag events')
+              if (printBugsnagEventsToConsole) {
+                logger.info('Message:')
+                console.log(formattedMessage)
+              }
+            }
+          })
+          .catch((error) => {
+            logger.error('Discord Error:')
+            console.error(error)
+            failedAttemptCount++
+          })
+      }).catch((error) => {
+        logger.error('Failed to fetch detailed bugsnag event')
         console.error(error)
         failedAttemptCount++
-    })
+      })
+    }
+  }).catch((error) => {
+    logger.error('Failed to list Bugsnag events')
+    console.error(error)
+    failedAttemptCount++
+  })
 }, pollIntervalInMinutes * 1000 * 60)
