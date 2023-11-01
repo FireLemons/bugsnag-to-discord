@@ -64,7 +64,7 @@ function formatDiscordMessage(bugsnagEvent) {
         const fileName = projectFile.file;
         stacktrace = stacktrace +
             `  **File:** ${fileName}:${projectFile.line_number}
-\`\`\`${fileName.endsWith('.rb') ? 'ruby' : 'erb'}
+\`\`\`${fileName.endsWith('.erb') ? 'erb' : 'ruby'}
 `;
         for (const line of Object.values(projectFile.code)) {
             stacktrace = stacktrace + line + '\n';
