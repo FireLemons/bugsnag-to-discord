@@ -82,7 +82,7 @@ ${userInfo}
 **Time:** ${formattedTime}`;
     if (message.length > DISCORD_MESSAGE_LENGTH_LIMIT) {
         while (message.length > DISCORD_MESSAGE_LENGTH_LIMIT - 4) {
-            message = message.substring(message.lastIndexOf("\n") + 1, -1);
+            message = message.substring(message.lastIndexOf('\n') + 1, -1);
         }
         message = message + '\n...';
     }

@@ -89,50 +89,49 @@ function getBugsnagEventDetails(eventID: string): Promise<axios.AxiosResponse> {
     })
 }
 
-function listBugsnagEvents(): Promise<axios.AxiosResponse> {
-    return axios.get(`https://api.bugsnag.com/projects/${config.bugsnagProjectID}/events`, {
-        headers: bugsnagAuthHeader
-    })
+function listBugsnagEvents (): Promise<axios.AxiosResponse> {
+  return axios.get(`https://api.bugsnag.com/projects/${config.bugsnagProjectID}/events`, {
+    headers: bugsnagAuthHeader
+  })
 }
 
 function formatDiscordMessage (bugsnagEvent: EventBugsnagDetailed): string {
-    
-    const matchedTimeSubstrings = /(.*):[\d]{2} GMT-[\d]{4} (\(.*\))/.exec(new Date(bugsnagEvent.received_at).toString())
-    const formattedTime = `${matchedTimeSubstrings[1]} ${matchedTimeSubstrings[2]}`
+  const matchedTimeSubstrings = /(.*):[\d]{2} GMT-[\d]{4} (\(.*\))/.exec(new Date(bugsnagEvent.received_at).toString())
+  const formattedTime = `${matchedTimeSubstrings[1]} ${matchedTimeSubstrings[2]}`
 
-    const email = bugsnagEvent.user.email
-    let userInfo = ''
+  const email = bugsnagEvent.user.email
+  let userInfo = ''
 
-    if (email) {
-        const anonymizedEmail = /(@.*)/.exec(email)[0]
-        userInfo = `**Affected User:** xxx${anonymizedEmail}, ${bugsnagEvent.user.id}`
-    } else {
-        userInfo = 'Affected user not logged in'
-    }
+  if (email) {
+    const anonymizedEmail = /(@.*)/.exec(email)[0]
+    userInfo = `**Affected User:** xxx${anonymizedEmail}, ${bugsnagEvent.user.id}`
+  } else {
+    userInfo = 'Affected user not logged in'
+  }
 
-    const onlyException = bugsnagEvent.exceptions[0]
-    const relevantProjectFiles = onlyException.stacktrace.filter((subroutine) => {
-        return subroutine.in_project
-    })
+  const onlyException = bugsnagEvent.exceptions[0]
+  const relevantProjectFiles = onlyException.stacktrace.filter((subroutine) => {
+    return subroutine.in_project
+  })
 
-    let stacktrace = ''
+  let stacktrace = ''
 
-    for (const projectFile of relevantProjectFiles) {
-        const fileName = projectFile.file
+  for (const projectFile of relevantProjectFiles) {
+    const fileName = projectFile.file
 
-        stacktrace = stacktrace +
+    stacktrace = stacktrace +
 // Keep these template literals against the left. They preserve whitespace.
 `  **File:** ${fileName}:${projectFile.line_number}
 \`\`\`${fileName.endsWith('.erb') ? 'erb' : 'ruby'}
 `
-        for (const line of Object.values(projectFile.code)) {
-            stacktrace = stacktrace + line + '\n'
-        }
-
-        stacktrace = stacktrace + '```\n'
+    for (const line of Object.values(projectFile.code)) {
+      stacktrace = stacktrace + line + '\n'
     }
 
-    let message =
+    stacktrace = stacktrace + '```\n'
+  }
+
+  let message =
 `**Environment:** ${bugsnagEvent.app.releaseStage}
 **Message**: ${onlyException.message}
 **Error URL:** ${bugsnagEvent.url}
@@ -143,15 +142,15 @@ ${userInfo}
 **App URL:** ${bugsnagEvent.request.url}
 **Time:** ${formattedTime}`
 
-    if (message.length > DISCORD_MESSAGE_LENGTH_LIMIT){
-        while (message.length > DISCORD_MESSAGE_LENGTH_LIMIT - 4) {
-            message = message.substring(message.lastIndexOf("\n") + 1, -1) 
-        }
-
-        message = message + '\n...'
+  if (message.length > DISCORD_MESSAGE_LENGTH_LIMIT) {
+    while (message.length > DISCORD_MESSAGE_LENGTH_LIMIT - 4) {
+      message = message.substring(message.lastIndexOf('\n') + 1, -1)
     }
 
-    return message
+    message = message + '\n...'
+  }
+
+  return message
 }
 
 function sendDiscordMessage (message: string): Promise<axios.AxiosResponse> {
