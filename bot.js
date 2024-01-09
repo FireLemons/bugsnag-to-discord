@@ -108,7 +108,7 @@ setInterval(() => {
         const errorEventsInPollWindow = bugsnagEventList.filter((errorEvent) => {
             return currentTime.valueOf() - new Date(errorEvent.received_at).valueOf() <= 1000 * 60 * (pollIntervalInMinutes + (pollIntervalInMinutes * failedAttemptCount));
         });
-        logger.info(`Found ${errorEventsInPollWindow.length} events in the last ${pollIntervalInMinutes} minutes`);
+        logger.info(`Found ${errorEventsInPollWindow.length} events in the last ${pollIntervalInMinutes} minutes before ${new Date().toLocaleString("en-GB")}`);
         for (const bugsnagEvent of errorEventsInPollWindow) {
             getBugsnagEventDetails(bugsnagEvent.id).then((bugsnagDetailedEventResponse) => {
                 const responseStatus = bugsnagDetailedEventResponse.status;
