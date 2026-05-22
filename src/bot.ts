@@ -50,6 +50,7 @@ type EventBugsnagDetailed = EventBugsnag /* Type Intersection Operator -> */ & {
 }
 
 const DISCORD_MESSAGE_LENGTH_LIMIT = 2000
+const DISCORD_SUPPRESS_EMBEDS_FLAG = 1 << 2
 
 const logger = {
     info: (message: string) => {
@@ -156,7 +157,8 @@ ${userInfo}
 function sendDiscordMessage (message: string): Promise<axios.AxiosResponse> {
   return axios.post(`https://discord.com/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`,
     {
-      content: message
+      content: message,
+      flags: DISCORD_SUPPRESS_EMBEDS_FLAG
     })
 }
 

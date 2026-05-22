@@ -7,6 +7,7 @@ const axios_1 = __importDefault(require("axios"));
 const clc = require('cli-color');
 const fs = require('fs');
 const DISCORD_MESSAGE_LENGTH_LIMIT = 2000;
+const DISCORD_SUPPRESS_EMBEDS_FLAG = 1 << 2;
 const logger = {
     info: (message) => {
         console.log(clc.cyan(message));
@@ -90,7 +91,8 @@ ${userInfo}
 }
 function sendDiscordMessage(message) {
     return axios_1.default.post(`https://discord.com/api/webhooks/${config.discordWebhookID}/${config.discordWebhookToken}`, {
-        content: message
+        content: message,
+        flags: DISCORD_SUPPRESS_EMBEDS_FLAG
     });
 }
 setInterval(() => {
